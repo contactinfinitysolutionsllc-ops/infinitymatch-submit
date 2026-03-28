@@ -134,6 +134,13 @@ select.fi option{background:var(--bg2)}
 .btn-ghost:hover{color:var(--text)}
 .spinner-btn{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
 
+.agree-row{display:flex;align-items:flex-start;gap:.8rem;padding:.7rem .9rem;background:var(--bg2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .18s;margin-bottom:.5rem}
+.agree-row:hover{border-color:var(--border2)}
+.agree-row.checked{border-color:var(--green)}
+.agree-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border2);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s;margin-top:1px;font-size:.7rem}
+.agree-row.checked .agree-check{background:var(--green);border-color:var(--green);color:#fff}
+.agree-text{font-size:.8rem;color:var(--muted2);line-height:1.5}
+.agree-text a{color:var(--accent2);text-decoration:none}
 /* ── SUCCESS SCREEN ── */
 #screen-success{display:none;text-align:center;padding:3rem 1rem;animation:up .4s ease both}
 .success-icon{font-size:3.5rem;margin-bottom:1rem}
@@ -374,6 +381,18 @@ footer a{color:var(--accent2);text-decoration:none}
       </select>
     </div>
 
+    <!-- HOMEOWNER AGREEMENT -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.1rem;margin-bottom:1rem">
+      <div style="font-family:'Syne',sans-serif;font-size:.78rem;font-weight:700;margin-bottom:.6rem">Before you submit</div>
+      <div class="agree-row" id="hw-agree" onclick="toggleHwAgree()">
+        <div class="agree-check" id="hw-check"></div>
+        <div class="agree-text">I understand that InfinityMatch is a <strong>marketplace platform</strong> — not a contractor. Any work performed is by an independent contractor and any disputes are between me and that contractor directly. InfinityMatch is not responsible for the quality, safety, or completion of any project. I agree to the <a href="https://contactinfinitysolutionsllc-ops.github.io/terms/" target="_blank">Terms of Service</a>.</div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.5rem;padding:.4rem .6rem;background:var(--bg3);border-radius:6px">
+        🔒 By submitting, your name, email, IP address, and timestamp are recorded as your digital agreement. This protects both you and the contractor.
+      </div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="goStep(3)">← Back</button>
       <button class="btn btn-primary" id="btn-submit" onclick="submitProject()">
@@ -418,6 +437,7 @@ const WORKER_URL = 'https://justdocs-worker.robertjosephreynolds.workers.dev';
 const PAGE_URL   = 'https://contactinfinitysolutionsllc-ops.github.io/infinitymatch-submit/';
 
 // ── STATE ─────────────────────────────────────────────────────────────────
+let hwAgreed = false;
 let selectedCategory = '';
 let selectedBudget   = '';
 let selectedTimeline = '';
@@ -591,6 +611,13 @@ Write in plain language as if talking to the homeowner. Be encouraging and pract
   aiRunning = false;
 }
 
+// ── HOMEOWNER AGREEMENT ──────────────────────────────────────────────────
+function toggleHwAgree() {
+  hwAgreed = !hwAgreed;
+  document.getElementById('hw-agree').classList.toggle('checked', hwAgreed);
+  document.getElementById('hw-check').textContent = hwAgreed ? '✓' : '';
+}
+
 // ── SUBMIT ────────────────────────────────────────────────────────────────
 async function submitProject() {
   const name  = document.getElementById('f-name').value.trim();
@@ -633,6 +660,22 @@ async function submitProject() {
     const data = await res.json();
 
     if (data.success) {
+      // Record homeowner agreement as digital signature
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:            'recordAgreement',
+          agreement_type:    'homeowner',
+          agreement_version: '2025-01-01',
+          full_name:         name,
+          email,
+          user_agent:        navigator.userAgent,
+          project_id:        data.project_id || null,
+          agreement_text:    'Homeowner Submission Agreement + Terms of Service v2025-01-01'
+        })
+      }).catch(() => {}); // fire and forget
+
       showSuccess({
         title:    payload.title,
         category: selectedCategory,
